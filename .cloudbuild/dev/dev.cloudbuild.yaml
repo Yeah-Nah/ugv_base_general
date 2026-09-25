@@ -1,0 +1,71 @@
+steps:
+  - name: ubuntu:22.04
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        set -a
+        source .cloudbuild/dev/version.env
+        set +a
+
+        for required_version in \
+          "$ARDUINO_CLI_VERSION" \
+          "$ARDUINOJSON_VERSION" \
+          "$ADAFRUIT_SSD1306_VERSION" \
+          "$INA219_WE_VERSION" \
+          "$ESP32_ENCODER_VERSION" \
+          "$PID_V2_VERSION" \
+          "$SIMPLE_KALMAN_FILTER_VERSION" \
+          "$ADAFRUIT_ICM20X_VERSION" \
+          "$ADAFRUIT_BUSIO_VERSION" \
+          "$ADAFRUIT_SENSOR_VERSION"; do
+          if [[ "$required_version" == REPLACE_WITH_VERIFIED_VERSION ]]; then
+            echo "A dependency version is still a placeholder in version.env" >&2
+            exit 1
+          fi
+        done
+
+        apt-get update
+        apt-get install --no-install-recommends --yes ca-certificates curl tar
+
+        curl --fail --silent --show-error --location \
+          "https://downloads.arduino.cc/arduino-cli/arduino-cli_${ARDUINO_CLI_VERSION}_Linux_64bit.tar.gz" \
+          --output /tmp/arduino-cli.tar.gz
+        tar --extract --gzip --file /tmp/arduino-cli.tar.gz --directory /usr/local/bin arduino-cli
+        chmod +x /usr/local/bin/arduino-cli
+
+        export ARDUINO_DATA_DIR=/workspace/.arduino-data
+        export ARDUINO_USER_DIR=/workspace/.arduino-user
+        mkdir --parents "$ARDUINO_DATA_DIR" "$ARDUINO_USER_DIR/libraries"
+
+        arduino-cli config init --dest-dir "$ARDUINO_DATA_DIR"
+        arduino-cli config set directories.data "$ARDUINO_DATA_DIR" --config-file "$ARDUINO_DATA_DIR/arduino-cli.yaml"
+        arduino-cli config set directories.user "$ARDUINO_USER_DIR" --config-file "$ARDUINO_DATA_DIR/arduino-cli.yaml"
+        arduino-cli core update-index --config-file "$ARDUINO_DATA_DIR/arduino-cli.yaml"
+        arduino-cli core install "esp32:esp32@$ESP32_CORE_VERSION" --config-file "$ARDUINO_DATA_DIR/arduino-cli.yaml"
+
+        arduino-cli lib update-index --config-file "$ARDUINO_DATA_DIR/arduino-cli.yaml"
+        arduino-cli lib install \
+          "ArduinoJson@$ARDUINOJSON_VERSION" \
+          "Adafruit SSD1306@$ADAFRUIT_SSD1306_VERSION" \
+          "INA219_WE@$INA219_WE_VERSION" \
+          "ESP32Encoder@$ESP32_ENCODER_VERSION" \
+          "PID_v2@$PID_V2_VERSION" \
+          "SimpleKalmanFilter@$SIMPLE_KALMAN_FILTER_VERSION" \
+          "Adafruit ICM20X@$ADAFRUIT_ICM20X_VERSION" \
+          "Adafruit BusIO@$ADAFRUIT_BUSIO_VERSION" \
+          "Adafruit Unified Sensor@$ADAFRUIT_SENSOR_VERSION" \
+          --config-file "$ARDUINO_DATA_DIR/arduino-cli.yaml"
+
+        cp --recursive SCServo "$ARDUINO_USER_DIR/libraries/SCServo"
+        mkdir --parents /workspace/artifacts
+        arduino-cli compile \
+          --config-file "$ARDUINO_DATA_DIR/arduino-cli.yaml" \
+          --fqbn "$ESP32_FQBN" \
+          --build-path /workspace/build \
+          --export-binaries \
+          General_Driver
+
+        cp /workspace/build/*.bin /workspace/artifacts/
+
+timeout: 1800s
