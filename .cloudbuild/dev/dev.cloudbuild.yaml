@@ -13,6 +13,7 @@ steps:
           "$$ARDUINO_CLI_VERSION" \
           "$$ARDUINOJSON_VERSION" \
           "$$ADAFRUIT_SSD1306_VERSION" \
+          "$$ADAFRUIT_GFX_VERSION" \
           "$$INA219_WE_VERSION" \
           "$$ESP32_ENCODER_VERSION" \
           "$$PID_V2_VERSION" \
@@ -27,7 +28,9 @@ steps:
         done
 
         apt-get update
-        apt-get install --no-install-recommends --yes ca-certificates curl tar
+        apt-get install --no-install-recommends --yes ca-certificates curl tar python3 python3-pip
+        # ESP32 core 2.0.14 invokes Python-based esptool during binary generation.
+        python3 -m pip install --no-cache-dir "esptool==4.5.1"
 
         curl --fail --silent --show-error --location \
           "https://downloads.arduino.cc/arduino-cli/arduino-cli_$${ARDUINO_CLI_VERSION}_Linux_64bit.tar.gz" \
@@ -46,9 +49,11 @@ steps:
         arduino-cli core install "esp32:esp32@$$ESP32_CORE_VERSION" --config-file "$$ARDUINO_DATA_DIR/arduino-cli.yaml"
 
         arduino-cli lib update-index --config-file "$$ARDUINO_DATA_DIR/arduino-cli.yaml"
-        arduino-cli lib install \
+        # Install the complete pinned dependency set without automatic upgrades.
+        arduino-cli lib install --no-deps \
           "ArduinoJson@$$ARDUINOJSON_VERSION" \
           "Adafruit SSD1306@$$ADAFRUIT_SSD1306_VERSION" \
+          "Adafruit GFX Library@$$ADAFRUIT_GFX_VERSION" \
           "INA219_WE@$$INA219_WE_VERSION" \
           "ESP32Encoder@$$ESP32_ENCODER_VERSION" \
           "PID_v2@$$PID_V2_VERSION" \
