@@ -100,6 +100,13 @@ steps:
           cp "/workspace/build/$$image" "$$bundle_dir/$$image"
         done
 
+        boot_app0=/workspace/.arduino-data/packages/esp32/hardware/esp32/$$ESP32_CORE_VERSION/tools/partitions/boot_app0.bin
+        if [[ ! -s "$$boot_app0" ]]; then
+          echo "Required core-supplied image is missing or empty: $$boot_app0" >&2
+          exit 1
+        fi
+        cp "$$boot_app0" "$$bundle_dir/boot_app0.bin"
+
         printf '{\n  "source_commit_sha": "%s",\n  "cloud_build_id": "%s",\n  "validation": "compile-validated",\n  "flash_recipe_verified": false,\n  "arduino_cli_version": "%s",\n  "esp32_core_version": "%s",\n  "fqbn": "%s",\n  "artifact_package": "ugv-general-driver",\n  "artifact_version": "%s"\n}\n' \
           "$$SOURCE_COMMIT_SHA" "$$CLOUD_BUILD_ID" "$$ARDUINO_CLI_VERSION" \
           "$$ESP32_CORE_VERSION" "$$ESP32_FQBN" "$$CLOUD_BUILD_ID" \
@@ -110,9 +117,10 @@ steps:
         See manifest.json for the source commit, build ID, and board profile.
         SHA256SUMS covers the images, manifest, dependency settings, and this README.
 
+        Includes boot_app0.bin from the pinned ESP32 core used for this build.
         Before flashing, confirm the pinned core's verbose upload recipe, including
-        every image, offset, and option. The core-supplied boot_app0.bin is not
-        included in this archive. No flash offsets or supported command are claimed.
+        every image, offset, and option. No flash offsets or supported command
+        are claimed. Hardware flashing has not been verified.
         Do not use Arduino IDE recompilation as a substitute for testing these bytes.
         Back up device configuration: partition changes or LittleFS mount failure
         can cause data loss. Configuration preservation has not been verified.
@@ -120,11 +128,11 @@ steps:
 
         cd "$$bundle_dir"
         sha256sum General_Driver.ino.bin General_Driver.ino.bootloader.bin \
-          General_Driver.ino.partitions.bin manifest.json version.env README.txt > SHA256SUMS
+          General_Driver.ino.partitions.bin boot_app0.bin manifest.json version.env README.txt > SHA256SUMS
         sha256sum --check SHA256SUMS
         tar --create --gzip --file /workspace/artifacts/firmware.tar.gz \
           General_Driver.ino.bin General_Driver.ino.bootloader.bin \
-          General_Driver.ino.partitions.bin manifest.json version.env README.txt SHA256SUMS
+          General_Driver.ino.partitions.bin boot_app0.bin manifest.json version.env README.txt SHA256SUMS
 
         # Verify the actual archive, not just the input directory.
         verify_dir=$$(mktemp --directory)
