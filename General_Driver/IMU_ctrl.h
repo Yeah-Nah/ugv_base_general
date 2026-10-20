@@ -13,8 +13,24 @@ void imu_init() {
 }
 
 
+// Stall breaker: a healthy imuDataGet() takes ~5-15 ms. If one call exceeds
+// this limit, stop polling the IMU until reboot.
+#define IMU_STALL_LIMIT_MS 250
+bool imuPollingEnabled = true;
+
+
 void updateIMUData() {
+	temp = temperatureRead();
+
+	if (!imuPollingEnabled) {
+		return;
+	}
+
+	unsigned long imuStartMs = millis();
 	imuDataGet( &stAngles, &stGyroRawData, &stAccelRawData, &stMagnRawData);
+	if (millis() - imuStartMs > IMU_STALL_LIMIT_MS) {
+		imuPollingEnabled = false;
+	}
 
 	ax = stAccelRawData.X;
 	ay = stAccelRawData.Y;
@@ -31,8 +47,6 @@ void updateIMUData() {
 	icm_roll = stAngles.roll;
 	icm_pitch = stAngles.pitch;
 	icm_yaw = stAngles.yaw;
-
-  temp = temperatureRead();
 }
 
 
